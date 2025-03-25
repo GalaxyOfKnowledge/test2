@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Space Invaders</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: black; 
+            color: white; 
+            font-family: Arial, sans-serif; 
+            text-align: center;
+        }
+        #menu, #settings, #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+        canvas { 
+            display: none; 
+            background: black; 
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1>Space Invaders</h1>
+        <button onclick="showSettings()">Settings</button>
+        <button onclick="startGame()">Play</button>
+    </div>
+
+    <div id="settings">
+        <h2>Settings</h2>
+        <label>Difficulty: 
+            <select id="difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </label>
+        <br>
+        <button onclick="saveSettings()">Save</button>
+        <button onclick="backToMenu()">Back</button>
+    </div>
+
+    <div id="gameOver">
+        <h2>Game Over</h2>
+        <p id="finalScore"></p>
+        <button onclick="backToMenu()">Main Menu</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let player, bullets = [], enemies = [], gameLoop;
+        let score = 0;
+        let difficulty = 'medium';
+
+        function init() {
+            player = {
+                x: canvas.width / 2,
+                y: canvas.height - 50,
+                width: 50,
+                height: 20,
+                speed: 5
+            };
+            bullets = [];
+            enemies = [];
+            score = 0;
+            createEnemies();
+        }
+
+        function createEnemies() {
+            const rows = difficulty === 'easy' ? 3 : difficulty === 'medium' ? 4 : 5;
+            const cols = difficulty === 'easy' ? 5 : difficulty === 'medium' ? 7 : 9;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    enemies.push({
+                        x: c * 60 + 50,
+                        y: r * 40 + 50,
+                        width: 40,
+                        height: 20,
+                        speed: 1
+                    });
+                }
+            }
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = 'green';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function drawEnemies() {
+            ctx.fillStyle = 'red';
+            enemies.forEach(enemy => {
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            });
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = 'white';
+            bullets.forEach(bullet => {
+                ctx.fillRect(bullet.x, bullet.y, 5, 10);
+            });
+        }
+
+        function moveEnemies() {
+            let moveRight = true;
+            enemies.forEach(enemy => {
+                enemy.x += enemy.speed;
+                if (enemy.x + enemy.width > canvas.width || enemy.x < 0) {
+                    moveRight = !moveRight;
+                    enemies.forEach(e => {
+                        e.speed *= -1;
+                        e.y += 20;
+                    });
+                }
+            });
+        }
+
+        function checkCollisions() {
+            bullets.forEach((bullet, bulletIndex) => {
+                enemies.forEach((enemy, enemyIndex) => {
+                    if (bullet.x < enemy.x + enemy.width &&
+                        bullet.x + 5 > enemy.x &&
+                        bullet.y < enemy.y + enemy.height &&
+                        bullet.y + 10 > enemy.y) {
+                        bullets.splice(bulletIndex, 1);
+                        enemies.splice(enemyIndex, 1);
+                        score += 10;
+                    }
+                });
+            });
+
+            if (enemies.some(enemy => enemy.y + enemy.height > player.y)) {
+                gameOver();
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawPlayer();
+            drawEnemies();
+            drawBullets();
+            
+            moveEnemies();
+            
+            bullets.forEach(bullet => {
+                bullet.y -= 5;
+            });
+            bullets = bullets.filter(bullet => bullet.y > 0);
+            
+            checkCollisions();
+            
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
+            
+            if (enemies.length === 0) {
+                createEnemies();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && player.x > 0) player.x -= player.speed;
+            if (e.key === 'ArrowRight' && player.x < canvas.width - player.width) player.x += player.speed;
+            if (e.key === ' ') {
+                bullets.push({
+                    x: player.x + player.width / 2 - 2.5,
+                    y: player.y
+                });
+            }
+        });
+
+        function showMenu() {
+            document.getElementById('menu').style.display = 'block';
+            document.getElementById('gameCanvas').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+        }
+
+        function startGame() {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'block';
+            init();
+            gameLoop();
+        }
+
+        function showSettings() {
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('settings').style.display = 'block';
+        }
+
+        function saveSettings() {
+            difficulty = document.getElementById('difficulty').value;
+            backToMenu();
+        }
+
+        function backToMenu() {
+            document.getElementById('settings').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+            showMenu();
+        }
+
+        function gameOver() {
+            cancelAnimationFrame(gameLoop);
+            document.getElementById('gameCanvas').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'block';
+            document.getElementById('finalScore').textContent = `Your Score: ${score}`;
+        }
+
+        showMenu();
+    </script>
+</body>
+</html>
